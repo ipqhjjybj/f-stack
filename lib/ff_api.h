@@ -370,6 +370,21 @@ void ff_restore_curthread(void *old_curthread);
 
 /* ZERO COPY API end */
 
+/* RX TIMESTAMP API begin */
+
+/*
+ * Get the RX hardware timestamp (in nanoseconds) for the last received packet.
+ * This timestamp is captured when the packet arrives at the NIC and is stored
+ * in the mbuf dynfield by DPDK.
+ *
+ * Returns:
+ *   0 on success (timestamp_ns contains valid timestamp)
+ *  -1 on error (invalid parameter)
+ */
+int ff_get_last_rx_timestamp(uint64_t *timestamp_ns);
+
+/* RX TIMESTAMP API end */
+
 #ifdef __cplusplus
 }
 #endif

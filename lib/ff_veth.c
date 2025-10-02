@@ -65,6 +65,9 @@
 #include "ff_config.h"
 #include "ff_dpdk_if.h"
 
+/* Forward declaration of DPDK mbuf structure */
+struct rte_mbuf;
+
 struct ff_veth_softc {
     struct ifnet *ifp;
     uint8_t mac[ETHER_ADDR_LEN];
@@ -379,11 +382,33 @@ ff_mbuf_gethdr(void *pkt, uint16_t total, void *data,
     m->m_next = NULL;
     m->m_nextpkt = NULL;
 
+    /* 显式确保 M_PKTHDR 标志被设置 */
+    m->m_flags |= M_PKTHDR;
+    // printf("hi? m=%p, m->m_flags=%d M_PKTHDR=%d\n", m, m->m_flags, M_PKTHDR);
+
     if (rx_csum) {
         m->m_pkthdr.csum_flags = CSUM_IP_CHECKED | CSUM_IP_VALID |
             CSUM_DATA_VALID | CSUM_PSEUDO_HDR;
         m->m_pkthdr.csum_data = 0xffff;
     }
+
+    /* Copy RX timestamp from DPDK mbuf to FreeBSD mbuf
+     * The timestamp is stored in dynfield1[0-1] of rte_mbuf (at offset 92 bytes)
+     * offsetof(struct rte_mbuf, dynfield1) = 92
+     * We use a fixed offset since we can't include rte_mbuf.h in this file
+     */
+    struct rte_mbuf *dpdk_mbuf = (struct rte_mbuf *)pkt;
+    uint64_t *timestamp_ptr = (uint64_t *)((char *)dpdk_mbuf + 92);
+    m->m_pkthdr.rcv_tstmp = *timestamp_ptr;
+
+    /* Set M_TSTMP flag to indicate timestamp is valid */
+    if (*timestamp_ptr != 0) {
+        m->m_flags |= M_TSTMP;
+    }
+
+    // printf("hi2? m->m_pkthdr.rcv_tstmp=%lu m_flags=0x%x M_TSTMP=%d\n",
+    //        m->m_pkthdr.rcv_tstmp, m->m_flags, M_TSTMP);
+
     return (void *)m;
 }
 
