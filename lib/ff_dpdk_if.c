@@ -2306,6 +2306,7 @@ main_loop(void *arg)
                     /* Store 64-bit timestamp in dynfield1[0] (full 64-bit value) */
                     memcpy(&pkts_burst[j]->dynfield1[0], &rx_timestamp_ns, sizeof(uint64_t));
                 }
+                //printf("pp nb_rx=%d, rx_timestamp_ns=%lu\n", nb_rx, rx_timestamp_ns);
             }
 
             if (nb_rx == 0)

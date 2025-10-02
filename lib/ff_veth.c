@@ -400,6 +400,7 @@ ff_mbuf_gethdr(void *pkt, uint16_t total, void *data,
     struct rte_mbuf *dpdk_mbuf = (struct rte_mbuf *)pkt;
     uint64_t *timestamp_ptr = (uint64_t *)((char *)dpdk_mbuf + 92);
     m->m_pkthdr.rcv_tstmp = *timestamp_ptr;
+    //printf("hiiii m->m_pkthdr.rcv_tstmp=%lu\n", m->m_pkthdr.rcv_tstmp);
 
     /* Set M_TSTMP flag to indicate timestamp is valid */
     if (*timestamp_ptr != 0) {
