@@ -111,6 +111,9 @@ __FBSDID("$FreeBSD$");
 #include "opt_sctp.h"
 
 #include <sys/param.h>
+
+/* External declaration for RX timestamp storage */
+extern __thread uint64_t ff_last_rx_timestamp_ns;
 #include <sys/systm.h>
 #include <sys/fcntl.h>
 #include <sys/limits.h>
@@ -2031,6 +2034,7 @@ dontblock:
 	SBLASTRECORDCHK(&so->so_rcv);
 	SBLASTMBUFCHK(&so->so_rcv);
 	nextrecord = m->m_nextpkt;
+
 	if (pr->pr_flags & PR_ADDR) {
 		KASSERT(m->m_type == MT_SONAME,
 		    ("m->m_type == %d", m->m_type));

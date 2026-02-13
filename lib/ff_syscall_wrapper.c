@@ -1820,3 +1820,25 @@ kern_fail:
     ff_os_errno(rc);
     return (-1);
 }
+
+/* RX Timestamp API Implementation */
+/* Thread-local storage for last RX timestamp (nanoseconds) */
+__thread uint64_t ff_last_rx_timestamp_ns = 0;
+
+int
+ff_get_last_rx_timestamp(uint64_t *timestamp_ns)
+{
+    int rc;
+
+    if (timestamp_ns == NULL) {
+        rc = EINVAL;
+        goto kern_fail;
+    }
+
+    *timestamp_ns = ff_last_rx_timestamp_ns;
+    return 0;
+
+kern_fail:
+    ff_os_errno(rc);
+    return -1;
+}

@@ -130,6 +130,9 @@ __FBSDID("$FreeBSD$");
 
 #include <security/mac/mac_framework.h>
 
+/* External declaration for RX timestamp storage (F-Stack DPDK support) */
+extern __thread uint64_t ff_last_rx_timestamp_ns;
+
 const int tcprexmtthresh = 3;
 
 VNET_DEFINE(int, tcp_log_in_vain) = 0;
@@ -1927,6 +1930,14 @@ tcp_do_segment(struct mbuf *m, struct tcphdr *th, struct socket *so,
 					    newsize, so, NULL))
 						so->so_rcv.sb_flags &= ~SB_AUTOSIZE;
 				m_adj(m, drop_hdrlen);	/* delayed header drop */
+
+				/* Extract RX timestamp before appending to socket buffer
+				 * (F-Stack DPDK timestamping support)
+				 */
+				if ((m->m_flags & M_PKTHDR) && (m->m_flags & M_TSTMP) && m->m_pkthdr.rcv_tstmp != 0) {
+					ff_last_rx_timestamp_ns = m->m_pkthdr.rcv_tstmp;
+				}
+
 				sbappendstream_locked(&so->so_rcv, m, 0);
 			}
 			SOCKBUF_UNLOCK(&so->so_rcv);
@@ -3142,8 +3153,15 @@ dodata:							/* XXX */
 			SOCKBUF_LOCK(&so->so_rcv);
 			if (so->so_rcv.sb_state & SBS_CANTRCVMORE)
 				m_freem(m);
-			else
+			else {
+				/* Extract RX timestamp before appending to socket buffer
+				 * (F-Stack DPDK timestamping support)
+				 */
+				if ((m->m_flags & M_PKTHDR) && (m->m_flags & M_TSTMP) && m->m_pkthdr.rcv_tstmp != 0) {
+					ff_last_rx_timestamp_ns = m->m_pkthdr.rcv_tstmp;
+				}
 				sbappendstream_locked(&so->so_rcv, m, 0);
+			}
 			SOCKBUF_UNLOCK(&so->so_rcv);
 			tp->t_flags |= TF_WAKESOR;
 		} else {

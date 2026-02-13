@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <time.h>  /* For clock_gettime() to add RX timestamps */
 
 #include <rte_common.h>
 #include <rte_byteorder.h>
@@ -712,6 +713,14 @@ init_port_start(void)
                     printf("RX checksum offload supported\n");
                     port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_CHECKSUM;
                     pconf->hw_features.rx_csum = 1;
+                }
+
+                /* Enable RX timestamp offload */
+                if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_TIMESTAMP) {
+                    printf("RX timestamp offload supported, enabling...\n");
+                    port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_TIMESTAMP;
+                } else {
+                    printf("WARNING: RX timestamp offload NOT supported by NIC\n");
                 }
 
                 if (ff_global_cfg.dpdk.tx_csum_offoad_skip == 0) {
@@ -2278,8 +2287,28 @@ main_loop(void *arg)
 
             idle &= !process_dispatch_ring(port_id, queue_id, pkts_burst, ctx);
 
+            /* Receive packets from NIC */
             nb_rx = rte_eth_rx_burst(port_id, queue_id, pkts_burst,
                 MAX_PKT_BURST);
+
+            /* === RX TIMESTAMP INJECTION ===
+             * Add timestamp immediately after receiving packets from NIC
+             * This captures: NIC DMA + DPDK RX processing time
+             * Store in DPDK mbuf->dynfield1 (will be copied to FreeBSD mbuf later)
+             * Timestamp format: nanoseconds since epoch (CLOCK_REALTIME)
+             */
+            if (nb_rx > 0) {
+                struct timespec ts;
+                clock_gettime(CLOCK_REALTIME, &ts);
+                uint64_t rx_timestamp_ns = (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+
+                for (j = 0; j < nb_rx; j++) {
+                    /* Store 64-bit timestamp in dynfield1[0] (full 64-bit value) */
+                    memcpy(&pkts_burst[j]->dynfield1[0], &rx_timestamp_ns, sizeof(uint64_t));
+                }
+                //printf("pp nb_rx=%d, rx_timestamp_ns=%lu\n", nb_rx, rx_timestamp_ns);
+            }
+
             if (nb_rx == 0)
                 continue;
 

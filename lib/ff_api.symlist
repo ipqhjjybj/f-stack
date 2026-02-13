@@ -69,3 +69,4 @@ ff_adapt_user_thread_add
 ff_adapt_user_thread_exit
 ff_switch_curthread
 ff_restore_curthread
+ff_get_last_rx_timestamp
